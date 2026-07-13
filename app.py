@@ -307,55 +307,7 @@ Convierte tu foto en un patrón de punto de cruz listo para imprimir.
 Sube una imagen, ajusta los parámetros y descarga el PDF.
 """)
 
-# Ajustes visibles en la pantalla principal (no en sidebar)
-st.subheader("⚙️ Ajustes del Patrón")
-
-col_a, col_b, col_c = st.columns(3)
-with col_a:
-    ancho_puntadas = st.slider(
-        "Ancho del patrón (puntos)", 
-        20, 200, 80, 5,
-        help="Más puntos = más detalle, pero el patrón será más grande."
-    )
-    numero_colores = st.slider(
-        "Número de colores", 
-        2, 30, 13, 1,
-        help="Menos colores = más fácil de bordar. Más colores = más realista."
-    )
-
-with col_b:
-    tamano_bloque = st.slider(
-        "Tamaño de cada punto (píxeles)", 
-        20, 50, 30, 2,
-        help="Puntos más grandes = más fácil de ver. Puntos más pequeños = cabe más en la página."
-    )
-    margen = st.slider(
-        "Margen de la página (píxeles)", 
-        30, 100, 60, 5,
-        help="Espacio en blanco alrededor para numeración y anotaciones."
-    )
-
-with col_c:
-    st.write("")  # spacer
-    st.write("")  # spacer
-    mostrar_bn = st.checkbox(
-        "Incluir versión blanco y negro", 
-        value=True,
-        help="Añade 4 páginas extra con solo símbolos (útil si imprimes en B/N)."
-    )
-
-st.markdown("---")
-
-# Info box
-with st.expander("📄 Qué incluye el PDF", expanded=False):
-    st.markdown("""
-    - **Portada** con miniatura y resumen
-    - **4 páginas a color** (cuadrantes del patrón)
-    - **4 páginas blanco y negro** (solo símbolos) — si está activado
-    - **Leyenda** con códigos DMC y cantidad de puntos
-    """)
-
-# Upload
+# Upload first
 uploaded_file = st.file_uploader(
     "📤 Sube una imagen (JPG, PNG, WEBP)",
     type=["jpg", "jpeg", "png", "webp"],
@@ -363,17 +315,91 @@ uploaded_file = st.file_uploader(
 )
 
 if uploaded_file is not None:
-    # Show preview
-    col1, col2 = st.columns([1, 1])
+    original_img = Image.open(uploaded_file)
     
-    with col1:
-        st.subheader("📷 Imagen original")
-        original_img = Image.open(uploaded_file)
+    # Layout: Left = Controls, Right = Previews
+    left_col, right_col = st.columns([1, 2])
+    
+    with left_col:
+        st.subheader("⚙️ Ajustes")
+        
+        ancho_puntadas = st.slider(
+            "Ancho del patrón (puntos)", 
+            20, 200, 80, 5,
+            help="Más puntos = más detalle, pero el patrón será más grande."
+        )
+        numero_colores = st.slider(
+            "Número de colores", 
+            2, 30, 13, 1,
+            help="Menos colores = más fácil de bordar. Más colores = más realista."
+        )
+        tamano_bloque = st.slider(
+            "Tamaño de cada punto (píxeles)", 
+            20, 50, 30, 2,
+            help="Puntos más grandes = más fácil de ver. Puntos más pequeños = cabe más en la página."
+        )
+        margen = st.slider(
+            "Margen de la página (píxeles)", 
+            30, 100, 60, 5,
+            help="Espacio en blanco alrededor para numeración y anotaciones."
+        )
+        mostrar_bn = st.checkbox(
+            "Incluir versión blanco y negro", 
+            value=True,
+            help="Añade 4 páginas extra con solo símbolos (útil si imprimes en B/N)."
+        )
+        
+        st.markdown("---")
+        
+        # Generate button
+        if st.button("🎨 Generar Patrón PDF", type="primary", use_container_width=True):
+            with st.spinner("Generando patrón... Esto puede tardar unos segundos."):
+                try:
+                    imagen_bytes = uploaded_file.getvalue()
+                    pdf_bytes, num_paginas, w, h, n_colores, leyenda = generar_patron_pdf(
+                        imagen_bytes, ancho_puntadas, numero_colores, 
+                        tamano_bloque=tamano_bloque, margen=margen, mostrar_bn=mostrar_bn
+                    )
+                    
+                    st.success(f"✅ Patrón generado: {num_paginas} páginas | {w}x{h} pts | {n_colores} colores")
+                    
+                    # Download button
+                    st.download_button(
+                        label="📥 Descargar PDF del Patrón",
+                        data=pdf_bytes,
+                        file_name=f"patron_punto_cruz_{ancho_puntadas}x{numero_colores}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+                    
+                    # Show legend table
+                    st.subheader("📋 Leyenda de Colores")
+                    legend_data = []
+                    for color, datos in sorted(leyenda.items(), key=lambda x: x[1]['puntadas'], reverse=True):
+                        r, g, b = color
+                        legend_data.append({
+                            "Símbolo": datos["simbolo"],
+                            "DMC": datos["dmc_cod"],
+                            "Nombre": datos["dmc_nombre"],
+                            "Puntadas": datos["puntadas"],
+                            "Color": f"#{r:02x}{g:02x}{b:02x}"
+                        })
+                    
+                    st.dataframe(legend_data, use_container_width=True, hide_index=True)
+                    
+                except Exception as e:
+                    st.error(f"❌ Error al generar el patrón: {str(e)}")
+                    st.exception(e)
+    
+    with right_col:
+        st.subheader("👁️ Vista previa en tiempo real")
+        
+        # Original image (smaller)
+        st.caption("📷 Imagen original")
         st.image(original_img, caption=f"Original: {original_img.size[0]}x{original_img.size[1]} px", use_container_width=True)
-    
-    with col2:
-        st.subheader("👁️ Vista previa del patrón (cuantizada)")
-        # Generate preview
+        
+        # Quantized preview (updates with sliders)
+        st.caption("🧵 Patrón cuantizado (simulación)")
         img_preview = original_img.convert("RGB")
         prop = ancho_puntadas / float(img_preview.size[0])
         alto_preview = int(float(img_preview.size[1]) * prop)
@@ -382,45 +408,59 @@ if uploaded_file is not None:
         # Scale up for visibility
         preview_display = img_cuantizada.resize((ancho_puntadas * 8, alto_preview * 8), Image.Resampling.NEAREST)
         st.image(preview_display, caption=f"Patrón: {ancho_puntadas}x{alto_preview} pts, {numero_colores} colores", use_container_width=True)
+        
+        # Info summary
+        st.info(f"**Resumen:** {ancho_puntadas}×{alto_preview} puntos | {numero_colores} colores | ~{ancho_puntadas * alto_preview:,} puntadas totales")
+
+else:
+    # No image uploaded - show settings centered
+    st.info("👆 Sube una imagen para comenzar")
     
-    if st.button("🎨 Generar Patrón PDF", type="primary", use_container_width=True):
-        with st.spinner("Generando patrón... Esto puede tardar unos segundos."):
-            try:
-                imagen_bytes = uploaded_file.getvalue()
-                pdf_bytes, num_paginas, w, h, n_colores, leyenda = generar_patron_pdf(
-                    imagen_bytes, ancho_puntadas, numero_colores, 
-                    tamano_bloque=tamano_bloque, margen=margen, mostrar_bn=mostrar_bn
-                )
-                
-                st.success(f"✅ Patrón generado: {num_paginas} páginas | {w}x{h} pts | {n_colores} colores")
-                
-                # Download button
-                st.download_button(
-                    label="📥 Descargar PDF del Patrón",
-                    data=pdf_bytes,
-                    file_name=f"patron_punto_cruz_{ancho_puntadas}x{numero_colores}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-                
-                # Show legend table
-                st.subheader("📋 Leyenda de Colores")
-                legend_data = []
-                for color, datos in sorted(leyenda.items(), key=lambda x: x[1]['puntadas'], reverse=True):
-                    r, g, b = color
-                    legend_data.append({
-                        "Símbolo": datos["simbolo"],
-                        "DMC": datos["dmc_cod"],
-                        "Nombre": datos["dmc_nombre"],
-                        "Puntadas": datos["puntadas"],
-                        "Color": f"#{r:02x}{g:02x}{b:02x}"
-                    })
-                
-                st.dataframe(legend_data, use_container_width=True, hide_index=True)
-                
-            except Exception as e:
-                st.error(f"❌ Error al generar el patrón: {str(e)}")
-                st.exception(e)
+    st.subheader("⚙️ Ajustes del Patrón")
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        ancho_puntadas = st.slider(
+            "Ancho del patrón (puntos)", 
+            20, 200, 80, 5,
+            help="Más puntos = más detalle, pero el patrón será más grande."
+        )
+        numero_colores = st.slider(
+            "Número de colores", 
+            2, 30, 13, 1,
+            help="Menos colores = más fácil de bordar. Más colores = más realista."
+        )
+
+    with col_b:
+        tamano_bloque = st.slider(
+            "Tamaño de cada punto (píxeles)", 
+            20, 50, 30, 2,
+            help="Puntos más grandes = más fácil de ver. Puntos más pequeños = cabe más en la página."
+        )
+        margen = st.slider(
+            "Margen de la página (píxeles)", 
+            30, 100, 60, 5,
+            help="Espacio en blanco alrededor para numeración y anotaciones."
+        )
+
+    with col_c:
+        st.write("")  # spacer
+        st.write("")  # spacer
+        mostrar_bn = st.checkbox(
+            "Incluir versión blanco y negro", 
+            value=True,
+            help="Añade 4 páginas extra con solo símbolos (útil si imprimes en B/N)."
+        )
+
+    st.markdown("---")
+
+    # Info box
+    with st.expander("📄 Qué incluye el PDF", expanded=False):
+        st.markdown("""
+        - **Portada** con miniatura y resumen
+        - **4 páginas a color** (cuadrantes del patrón)
+        - **4 páginas blanco y negro** (solo símbolos) — si está activado
+        - **Leyenda** con códigos DMC y cantidad de puntos
+        """)
 
 st.markdown("---")
 st.markdown("""
