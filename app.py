@@ -151,7 +151,7 @@ def crear_pagina_patron(pixeles, leyenda_colores, start_x, end_x, start_y, end_y
     dibujar_guias_cuadrante(draw, start_x, end_x, start_y, end_y, ancho_total, alto_total, tamano_bloque, margen, f_texto)
     return img_pagina
 
-def generar_patron_pdf(imagen_bytes, ancho_puntadas, numero_colores):
+def generar_patron_pdf(imagen_bytes, ancho_puntadas, numero_colores, tamano_bloque=30, margen=60, mostrar_bn=True):
     """Genera el PDF del patrón de punto de cruz y retorna los bytes del PDF."""
     img = Image.open(io.BytesIO(imagen_bytes)).convert("RGB")
     
@@ -194,8 +194,6 @@ def generar_patron_pdf(imagen_bytes, ancho_puntadas, numero_colores):
             "puntadas": conteo_puntadas[color]
         }
         
-    tamano_bloque = 30 
-    margen = 60
     f_simbolos, f_texto, f_titulo = obtener_fuentes(tamano_bloque)
     
     # PÁGINA 1: PORTADA
@@ -216,9 +214,10 @@ def generar_patron_pdf(imagen_bytes, ancho_puntadas, numero_colores):
     
     y_resumen = pos_y + img_miniatura.height + 40
     total_puntadas = ancho_puntadas * alto_puntadas
+    paginas_patron = 4 + (4 if mostrar_bn else 0)
     draw_portada.text((pos_x, y_resumen), f"Tamaño Total: {ancho_puntadas} x {alto_puntadas} pts", fill=(0,0,0), font=f_texto)
-    draw_portada.text((pos_x, y_resumen + 25), f"Páginas de Patrón: 4", fill=(0,0,0), font=f_texto)
-    draw_portada.text((pos_x, y_resumen + 50), f"Total de Colores: {numero_colores}", fill=(0,0,0), font=f_texto)
+    draw_portada.text((pos_x, y_resumen + 25), f"Páginas de Patrón: {paginas_patron}", fill=(0,0,0), font=f_texto)
+    draw_portada.text((pos_x, y_resumen + 50), f"Total de Colores: {len(colores_unicos)}", fill=(0,0,0), font=f_texto)
 
     # PÁGINAS DEL PATRÓN (2x2 GRID)
     mid_x = ancho_puntadas // 2
@@ -238,10 +237,11 @@ def generar_patron_pdf(imagen_bytes, ancho_puntadas, numero_colores):
         img_q = crear_pagina_patron(pixeles, leyenda_colores, sx, ex, sy, ey, ancho_puntadas, alto_puntadas, tamano_bloque, margen, f_simbolos, f_texto, titulo, modo="color")
         paginas_adicionales.append(img_q)
         
-    # 4 páginas BLANCO Y NEGRO
-    for sx, ex, sy, ey, titulo in cuadrantes:
-        img_q = crear_pagina_patron(pixeles, leyenda_colores, sx, ex, sy, ey, ancho_puntadas, alto_puntadas, tamano_bloque, margen, f_simbolos, f_texto, titulo, modo="bn")
-        paginas_adicionales.append(img_q)
+    # 4 páginas BLANCO Y NEGRO (si está activado)
+    if mostrar_bn:
+        for sx, ex, sy, ey, titulo in cuadrantes:
+            img_q = crear_pagina_patron(pixeles, leyenda_colores, sx, ex, sy, ey, ancho_puntadas, alto_puntadas, tamano_bloque, margen, f_simbolos, f_texto, titulo, modo="bn")
+            paginas_adicionales.append(img_q)
             
     # PÁGINA FINAL: LEYENDA
     pag_leyenda = Image.new("RGB", (ancho_portada, max(alto_portada, 800)), color=(255, 255, 255))
@@ -303,23 +303,50 @@ st.set_page_config(
 
 st.title("🧵 Generador de Patrones de Punto de Cruz")
 st.markdown("""
-Convierte cualquier imagen en un patrón profesional de punto de cruz (cross-stitch) 
-con leyenda de colores DMC, guías de cuadrante y PDF listo para imprimir.
+Convierte tu foto en un patrón de punto de cruz listo para imprimir.
+Sube una imagen, ajusta los parámetros y descarga el PDF.
 """)
 
 with st.sidebar:
-    st.header("⚙️ Parámetros")
-    ancho_puntadas = st.slider("Ancho en puntadas", 20, 200, 80, 5,
-                               help="Número de puntos de ancho. Más ancho = más detalle pero patrón más grande.")
-    numero_colores = st.slider("Número de colores", 2, 30, 13, 1,
-                               help="Cantidad de colores DMC a usar. Menos colores = patrón más simple.")
+    st.header("⚙️ Ajustes")
+    
+    ancho_puntadas = st.slider(
+        "Ancho del patrón (puntos)", 
+        20, 200, 80, 5,
+        help="Más puntos = más detalle, pero el patrón será más grande."
+    )
+    
+    numero_colores = st.slider(
+        "Número de colores", 
+        2, 30, 13, 1,
+        help="Menos colores = más fácil de bordar. Más colores = más realista."
+    )
+    
+    tamano_bloque = st.slider(
+        "Tamaño de cada punto en el PDF (píxeles)", 
+        20, 50, 30, 2,
+        help="Puntos más grandes = más fácil de ver. Puntos más pequeños = cabe más en la página."
+    )
+    
+    margen = st.slider(
+        "Margen de la página (píxeles)", 
+        30, 100, 60, 5,
+        help="Espacio en blanco alrededor del patrón para numeración y anotaciones."
+    )
+    
+    mostrar_bn = st.checkbox(
+        "Incluir versión blanco y negro", 
+        value=True,
+        help="Añade 4 páginas extra con solo símbolos (útil si imprimes en B/N)."
+    )
     
     st.markdown("---")
-    st.markdown("### 📋 Información")
+    st.markdown("### 📄 Qué incluye el PDF")
     st.markdown("""
-    - **Salida**: PDF de 10 páginas (portada, 4 cuadrantes color, 4 cuadrantes B/N, leyenda)
-    - **Colores**: Basado en paleta DMC oficial
-    - **Símbolos**: Letras, números y símbolos únicos por color
+    - **Portada** con miniatura y resumen
+    - **4 páginas a color** (cuadrantes del patrón)
+    - **4 páginas blanco y negro** (solo símbolos)
+    - **Leyenda** con códigos DMC y cantidad de puntos
     """)
 
 # Upload
@@ -355,7 +382,8 @@ if uploaded_file is not None:
             try:
                 imagen_bytes = uploaded_file.getvalue()
                 pdf_bytes, num_paginas, w, h, n_colores, leyenda = generar_patron_pdf(
-                    imagen_bytes, ancho_puntadas, numero_colores
+                    imagen_bytes, ancho_puntadas, numero_colores, 
+                    tamano_bloque=tamano_bloque, margen=margen, mostrar_bn=mostrar_bn
                 )
                 
                 st.success(f"✅ Patrón generado: {num_paginas} páginas | {w}x{h} pts | {n_colores} colores")
