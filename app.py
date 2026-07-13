@@ -307,7 +307,7 @@ Convierte tu foto en un patrón de punto de cruz listo para imprimir.
 Sube una imagen, ajusta los parámetros y descarga el PDF.
 """)
 
-# Upload first
+# Upload first - ONLY this shows initially
 uploaded_file = st.file_uploader(
     "📤 Sube una imagen (JPG, PNG, WEBP)",
     type=["jpg", "jpeg", "png", "webp"],
@@ -317,8 +317,7 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
     original_img = Image.open(uploaded_file)
     
-    # Calculate preview values for sliders' defaults
-    # Default values
+    # Default values (only initialize once)
     if 'ancho_puntadas' not in st.session_state:
         st.session_state.ancho_puntadas = 80
     if 'numero_colores' not in st.session_state:
@@ -330,56 +329,51 @@ if uploaded_file is not None:
     if 'mostrar_bn' not in st.session_state:
         st.session_state.mostrar_bn = True
     
-    # Sliders row - horizontal layout above preview
-    st.subheader("⚙️ Ajustes")
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
+    # Layout: Original image LEFT, Controls + Simulation RIGHT
+    left_col, right_col = st.columns([1, 1.5])
+    
+    with left_col:
+        st.subheader("📷 Imagen original")
+        st.image(original_img, caption=f"Original: {original_img.size[0]}x{original_img.size[1]} px", use_container_width=True)
+    
+    with right_col:
+        st.subheader("⚙️ Ajustes y vista previa")
+        
+        # Sliders stacked vertically on the right
         ancho_puntadas = st.slider(
-            "Ancho (puntos)", 20, 200, st.session_state.ancho_puntadas, 5,
-            key="slider_ancho", help="Más puntos = más detalle"
+            "Ancho del patrón (puntos)", 20, 200, st.session_state.ancho_puntadas, 5,
+            key="slider_ancho", help="Más puntos = más detalle, patrón más grande"
         )
         st.session_state.ancho_puntadas = ancho_puntadas
-    with col2:
+        
         numero_colores = st.slider(
-            "Colores", 2, 30, st.session_state.numero_colores, 1,
-            key="slider_colores", help="Menos = más fácil de bordar"
+            "Número de colores", 2, 30, st.session_state.numero_colores, 1,
+            key="slider_colores", help="Menos colores = más fácil de bordar"
         )
         st.session_state.numero_colores = numero_colores
-    with col3:
+        
         tamano_bloque = st.slider(
-            "Tamaño punto (px)", 20, 50, st.session_state.tamano_bloque, 2,
+            "Tamaño de punto en PDF (px)", 20, 50, st.session_state.tamano_bloque, 2,
             key="slider_tamano", help="Más grande = más fácil de ver"
         )
         st.session_state.tamano_bloque = tamano_bloque
-    with col4:
+        
         margen = st.slider(
-            "Margen (px)", 30, 100, st.session_state.margen, 5,
-            key="slider_margen", help="Espacio para numeración"
+            "Margen de página (px)", 30, 100, st.session_state.margen, 5,
+            key="slider_margen", help="Espacio para numeración y anotaciones"
         )
         st.session_state.margen = margen
-    with col5:
-        st.write("")  # vertical align
-        st.write("")
+        
         mostrar_bn = st.checkbox(
-            "Incluir B/N", value=st.session_state.mostrar_bn,
-            key="check_bn", help="4 páginas extra solo símbolos"
+            "Incluir versión blanco y negro", value=st.session_state.mostrar_bn,
+            key="check_bn", help="Añade 4 páginas extra con solo símbolos"
         )
         st.session_state.mostrar_bn = mostrar_bn
-    
-    st.markdown("---")
-    
-    # Preview section - full width
-    st.subheader("👁️ Vista previa en tiempo real")
-    
-    # Two columns for original and quantized
-    prev_col1, prev_col2 = st.columns(2)
-    
-    with prev_col1:
-        st.caption("📷 Imagen original")
-        st.image(original_img, caption=f"Original: {original_img.size[0]}x{original_img.size[1]} px", use_container_width=True)
-    
-    with prev_col2:
-        st.caption("🧵 Patrón cuantizado (simulación)")
+        
+        st.markdown("---")
+        
+        # Simulation preview (updates live with sliders)
+        st.caption("🧵 Patrón cuantizado (simulación en tiempo real)")
         img_preview = original_img.convert("RGB")
         prop = ancho_puntadas / float(img_preview.size[0])
         alto_preview = int(float(img_preview.size[1]) * prop)
@@ -387,14 +381,12 @@ if uploaded_file is not None:
         img_cuantizada = img_pixelada.quantize(colors=numero_colores).convert("RGB")
         preview_display = img_cuantizada.resize((ancho_puntadas * 8, alto_preview * 8), Image.Resampling.NEAREST)
         st.image(preview_display, caption=f"Patrón: {ancho_puntadas}x{alto_preview} pts, {numero_colores} colores", use_container_width=True)
-    
-    # Info summary
-    st.info(f"**Resumen:** {ancho_puntadas}×{alto_preview} puntos | {numero_colores} colores | ~{ancho_puntadas * alto_preview:,} puntadas totales")
-    
-    # Generate button BELOW preview
-    st.markdown("---")
-    gen_col1, gen_col2, gen_col3 = st.columns([1, 2, 1])
-    with gen_col2:
+        
+        # Info summary
+        st.info(f"**Resumen:** {ancho_puntadas}×{alto_preview} puntos | {numero_colores} colores | ~{ancho_puntadas * alto_preview:,} puntadas totales")
+        
+        # Generate button BELOW preview
+        st.markdown("---")
         if st.button("🎨 Generar Patrón PDF", type="primary", use_container_width=True):
             with st.spinner("Generando patrón... Esto puede tardar unos segundos."):
                 try:
@@ -435,42 +427,9 @@ if uploaded_file is not None:
                     st.exception(e)
 
 else:
-    # No image uploaded - show settings centered
-    st.info("👆 Sube una imagen para comenzar")
+    # No image uploaded - show only upload prompt and PDF info
+    st.info("👆 Sube una imagen para ver los ajustes y la vista previa")
     
-    st.subheader("⚙️ Ajustes del Patrón")
-    col_a, col_b, col_c, col_d, col_e = st.columns(5)
-    with col_a:
-        ancho_puntadas = st.slider(
-            "Ancho (puntos)", 20, 200, 80, 5,
-            help="Más puntos = más detalle"
-        )
-    with col_b:
-        numero_colores = st.slider(
-            "Colores", 2, 30, 13, 1,
-            help="Menos = más fácil de bordar"
-        )
-    with col_c:
-        tamano_bloque = st.slider(
-            "Tamaño punto (px)", 20, 50, 30, 2,
-            help="Más grande = más fácil de ver"
-        )
-    with col_d:
-        margen = st.slider(
-            "Margen (px)", 30, 100, 60, 5,
-            help="Espacio para numeración"
-        )
-    with col_e:
-        st.write("")
-        st.write("")
-        mostrar_bn = st.checkbox(
-            "Incluir B/N", value=True,
-            help="4 páginas extra solo símbolos"
-        )
-
-    st.markdown("---")
-
-    # Info box
     with st.expander("📄 Qué incluye el PDF", expanded=False):
         st.markdown("""
         - **Portada** con miniatura y resumen
