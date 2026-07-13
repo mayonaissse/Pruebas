@@ -307,45 +307,51 @@ Convierte tu foto en un patrón de punto de cruz listo para imprimir.
 Sube una imagen, ajusta los parámetros y descarga el PDF.
 """)
 
-with st.sidebar:
-    st.header("⚙️ Ajustes")
-    
+# Ajustes visibles en la pantalla principal (no en sidebar)
+st.subheader("⚙️ Ajustes del Patrón")
+
+col_a, col_b, col_c = st.columns(3)
+with col_a:
     ancho_puntadas = st.slider(
         "Ancho del patrón (puntos)", 
         20, 200, 80, 5,
         help="Más puntos = más detalle, pero el patrón será más grande."
     )
-    
     numero_colores = st.slider(
         "Número de colores", 
         2, 30, 13, 1,
         help="Menos colores = más fácil de bordar. Más colores = más realista."
     )
-    
+
+with col_b:
     tamano_bloque = st.slider(
-        "Tamaño de cada punto en el PDF (píxeles)", 
+        "Tamaño de cada punto (píxeles)", 
         20, 50, 30, 2,
         help="Puntos más grandes = más fácil de ver. Puntos más pequeños = cabe más en la página."
     )
-    
     margen = st.slider(
         "Margen de la página (píxeles)", 
         30, 100, 60, 5,
-        help="Espacio en blanco alrededor del patrón para numeración y anotaciones."
+        help="Espacio en blanco alrededor para numeración y anotaciones."
     )
-    
+
+with col_c:
+    st.write("")  # spacer
+    st.write("")  # spacer
     mostrar_bn = st.checkbox(
         "Incluir versión blanco y negro", 
         value=True,
         help="Añade 4 páginas extra con solo símbolos (útil si imprimes en B/N)."
     )
-    
-    st.markdown("---")
-    st.markdown("### 📄 Qué incluye el PDF")
+
+st.markdown("---")
+
+# Info box
+with st.expander("📄 Qué incluye el PDF", expanded=False):
     st.markdown("""
     - **Portada** con miniatura y resumen
     - **4 páginas a color** (cuadrantes del patrón)
-    - **4 páginas blanco y negro** (solo símbolos)
+    - **4 páginas blanco y negro** (solo símbolos) — si está activado
     - **Leyenda** con códigos DMC y cantidad de puntos
     """)
 
