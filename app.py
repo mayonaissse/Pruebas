@@ -407,21 +407,6 @@ if uploaded_file is not None:
                         use_container_width=True
                     )
                     
-                    # Show legend table
-                    st.subheader("📋 Leyenda de Colores")
-                    legend_data = []
-                    for color, datos in sorted(leyenda.items(), key=lambda x: x[1]['puntadas'], reverse=True):
-                        r, g, b = color
-                        legend_data.append({
-                            "Símbolo": datos["simbolo"],
-                            "DMC": datos["dmc_cod"],
-                            "Nombre": datos["dmc_nombre"],
-                            "Puntadas": datos["puntadas"],
-                            "Color": f"#{r:02x}{g:02x}{b:02x}"
-                        })
-                    
-                    st.dataframe(legend_data, use_container_width=True, hide_index=True)
-                    
                 except Exception as e:
                     st.error(f"❌ Error al generar el patrón: {str(e)}")
                     st.exception(e)
